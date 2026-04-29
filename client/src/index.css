@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Theme system — overrides Tailwind colors based on data-theme
+   Themes: dark (default), light, sunset
+   ============================================================ */
+
+/* ---- DARK THEME (default) ---- */
+[data-theme="dark"] body { background: #18181b; }
+
+/* ---- LIGHT THEME ---- */
+[data-theme="light"] body { background: #fafaf9; color: #18181b; }
+[data-theme="light"] .bg-zinc-900 { background-color: #fafaf9 !important; }
+[data-theme="light"] .bg-zinc-800 { background-color: #ffffff !important; }
+[data-theme="light"] .bg-zinc-800\/50 { background-color: rgba(244, 244, 245, 0.5) !important; }
+[data-theme="light"] .bg-zinc-700 { background-color: #f4f4f5 !important; }
+[data-theme="light"] .border-zinc-800 { border-color: #e4e4e7 !important; }
+[data-theme="light"] .border-zinc-700 { border-color: #d4d4d8 !important; }
+[data-theme="light"] .border-zinc-600 { border-color: #d4d4d8 !important; }
+[data-theme="light"] .text-white { color: #18181b !important; }
+[data-theme="light"] .text-zinc-100 { color: #18181b !important; }
+[data-theme="light"] .text-zinc-200 { color: #27272a !important; }
+[data-theme="light"] .text-zinc-300 { color: #3f3f46 !important; }
+[data-theme="light"] .text-zinc-400 { color: #52525b !important; }
+[data-theme="light"] .text-zinc-500 { color: #71717a !important; }
+[data-theme="light"] .text-zinc-600 { color: #a1a1aa !important; }
+[data-theme="light"] .placeholder-zinc-400::placeholder { color: #71717a !important; }
+[data-theme="light"] .placeholder-zinc-500::placeholder { color: #a1a1aa !important; }
+/* Keep user message bubble dark text on violet */
+[data-theme="light"] .bg-violet-600 { color: #ffffff !important; }
+
+/* ---- SUNSET THEME ---- */
+[data-theme="sunset"] body {
+  background: linear-gradient(135deg, #2d1b4e 0%, #4a1942 40%, #7d2e3a 80%, #c43d2c 100%);
+  background-attachment: fixed;
+  color: #fef3e8;
+}
+[data-theme="sunset"] .bg-zinc-900 { background-color: rgba(20, 10, 35, 0.6) !important; backdrop-filter: blur(8px); }
+[data-theme="sunset"] .bg-zinc-800 { background-color: rgba(40, 20, 55, 0.55) !important; backdrop-filter: blur(8px); }
+[data-theme="sunset"] .bg-zinc-800\/50 { background-color: rgba(40, 20, 55, 0.4) !important; }
+[data-theme="sunset"] .bg-zinc-700 { background-color: rgba(60, 30, 70, 0.6) !important; }
+[data-theme="sunset"] .border-zinc-800 { border-color: rgba(255, 200, 130, 0.15) !important; }
+[data-theme="sunset"] .border-zinc-700 { border-color: rgba(255, 200, 130, 0.2) !important; }
+[data-theme="sunset"] .border-zinc-600 { border-color: rgba(255, 200, 130, 0.25) !important; }
+[data-theme="sunset"] .text-zinc-100 { color: #fef3e8 !important; }
+[data-theme="sunset"] .text-zinc-200 { color: #fce7c8 !important; }
+[data-theme="sunset"] .text-zinc-300 { color: #f9d29d !important; }
+[data-theme="sunset"] .text-zinc-400 { color: #e8b88a !important; }
+[data-theme="sunset"] .text-zinc-500 { color: #c79b75 !important; }
+[data-theme="sunset"] .text-zinc-600 { color: #a07d5a !important; }
+[data-theme="sunset"] .bg-violet-600 {
+  background: linear-gradient(135deg, #f97316, #dc2626) !important;
+}
+[data-theme="sunset"] .bg-violet-600:hover,
+[data-theme="sunset"] .hover\:bg-violet-700:hover {
+  background: linear-gradient(135deg, #ea580c, #b91c1c) !important;
+}
+
+/* ---- Themed scrollbar ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 4px; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+[data-theme="sunset"] ::-webkit-scrollbar-thumb { background: rgba(255, 200, 130, 0.3); border-radius: 4px; }
+[data-theme="sunset"] ::-webkit-scrollbar-thumb:hover { background: rgba(255, 200, 130, 0.5); }
+
+/* Markdown code blocks */
+pre {
+  border-radius: 8px !important;
+  margin: 8px 0 !important;
+}
+
+/* Smooth theme transitions */
+body, .bg-zinc-900, .bg-zinc-800, .bg-zinc-700, .text-zinc-100, .text-zinc-200,
+.text-zinc-300, .text-zinc-400, .border-zinc-800, .border-zinc-700 {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

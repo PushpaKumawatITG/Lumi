@@ -1,0 +1,19 @@
+# Render auto-deployment config for Lumi (single-service: backend + React build)
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: lumi
+    runtime: node
+    plan: free
+    region: singapore   # change to oregon / frankfurt / etc. if you prefer
+    buildCommand: cd server && npm install && cd ../client && npm install && npm run build
+    startCommand: cd server && node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GROQ_API_KEY
+        sync: false           # set this manually in Render dashboard
+      - key: SESSION_SECRET
+        generateValue: true   # Render generates a random secret on first deploy
