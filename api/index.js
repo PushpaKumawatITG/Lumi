@@ -5,42 +5,42 @@
  */
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
-import mongoose from "mongoose";
+import session from "express-session";
+import MongoStore from "connect-mongo";
+import authRoutes from "../server/routes/auth.js";
 import conversationRoutes from "../server/routes/conversation.js";
 import messageRoutes from "../server/routes/message.js";
 import { errorHandler } from "../server/middleware/errorHandler.js";
+import { connectDB } from "../server/db.js";
 
 const app = express();
 
-// CORS for production
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.CLIENT_URL,
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-].filter(Boolean);
+// Vercel sits behind a proxy; required for secure cookies + sameSite=none
+app.set("trust proxy", 1);
 
+app.use(express.json({ limit: "20mb" }));
+
+// Session middleware — stored in Mongo so cookies survive across serverless invocations
 app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-      cb(null, true); // Be permissive in serverless (Vercel same-origin)
+  session({
+    secret: process.env.SESSION_SECRET || "lumi-dev-secret-change-me",
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: "sessions",
+      ttl: 30 * 24 * 60 * 60,
+    }),
+    cookie: {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     },
-    credentials: true,
   })
 );
 
-app.use(express.json({ limit: "1mb" }));
-
-// MongoDB connection (reuse across invocations)
-let isConnected = false;
-async function connectDB() {
-  if (isConnected) return;
-  await mongoose.connect(process.env.MONGODB_URI);
-  isConnected = true;
-}
-
-// Ensure DB is connected before handling requests
+// Warm up the Mongo connection on cold start (cached across invocations)
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();
@@ -50,12 +50,11 @@ app.use(async (_req, _res, next) => {
   }
 });
 
-// Routes
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+app.use("/api/auth", authRoutes);
 app.use("/api/conversation", conversationRoutes);
 app.use("/api/message", messageRoutes);
 
-// Error handler
 app.use(errorHandler);
 
 export default app;

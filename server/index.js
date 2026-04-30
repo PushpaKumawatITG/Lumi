@@ -2,13 +2,14 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
+import MongoStore from "connect-mongo";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
 import conversationRoutes from "./routes/conversation.js";
 import messageRoutes from "./routes/message.js";
 import { errorHandler } from "./middleware/errorHandler.js";
-import "./db.js";
+import { connectDB } from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -30,17 +31,22 @@ if (!isProduction) {
 
 app.use(express.json({ limit: "20mb" }));
 
-// Session middleware (cookie-based)
+// Session middleware (cookies signed and stored in MongoDB so they survive restarts/serverless)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "lumi-dev-secret-change-me",
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      collectionName: "sessions",
+      ttl: 30 * 24 * 60 * 60, // 30 days, matches cookie maxAge
+    }),
     cookie: {
       httpOnly: true,
-      secure: isProduction,                  // require HTTPS in production
+      secure: isProduction,
       sameSite: isProduction ? "strict" : "lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000,      // 30 days
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     },
   })
 );
@@ -65,8 +71,16 @@ if (isProduction) {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\n  Lumi running on port ${PORT}\n`);
-});
+// Eagerly connect to Mongo at startup so the first request isn't slow.
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`\n  Lumi running on port ${PORT}\n`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err.message);
+    process.exit(1);
+  });
 
 export default app;

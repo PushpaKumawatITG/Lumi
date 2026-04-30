@@ -26,17 +26,13 @@ const SYSTEM_PROMPT = {
  * POST /api/message/:id/feedback — thumbs up/down on an assistant message
  * Body: { feedback: "up" | "down" | null }
  */
-router.post("/:id/feedback", (req, res, next) => {
+router.post("/:id/feedback", async (req, res, next) => {
   try {
     const { feedback } = req.body || {};
     if (feedback !== "up" && feedback !== "down" && feedback !== null) {
       return res.status(400).json({ error: "feedback must be 'up', 'down', or null" });
     }
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) {
-      return res.status(400).json({ error: "Invalid message id" });
-    }
-    const result = Messages.setFeedback(id, req.user.id, feedback);
+    const result = await Messages.setFeedback(req.params.id, req.user.id, feedback);
     if (!result.ok) return res.status(result.status).json({ error: "Not found" });
     res.json({ success: true });
   } catch (err) {
@@ -47,14 +43,14 @@ router.post("/:id/feedback", (req, res, next) => {
 /**
  * GET /api/message/:conversationId — fetch all messages
  */
-router.get("/:conversationId", (req, res, next) => {
+router.get("/:conversationId", async (req, res, next) => {
   try {
-    const conv = Conversations.findById(req.params.conversationId);
+    const conv = await Conversations.findById(req.params.conversationId);
     if (!conv) return res.status(404).json({ error: "Conversation not found" });
     if (conv.user_id !== req.user.id)
       return res.status(403).json({ error: "Forbidden" });
 
-    const msgs = Messages.listByConversation(req.params.conversationId);
+    const msgs = await Messages.listByConversation(req.params.conversationId);
     res.json(msgs);
   } catch (err) {
     next(err);
@@ -118,13 +114,13 @@ router.post("/send", async (req, res, next) => {
       return res.status(400).json({ error: "Message or attachment required" });
     }
 
-    const conv = Conversations.findById(conversationId);
+    const conv = await Conversations.findById(conversationId);
     if (!conv) return res.status(404).json({ error: "Conversation not found" });
     if (conv.user_id !== req.user.id)
       return res.status(403).json({ error: "Forbidden" });
 
     // Save user message with attachments (we keep image data URLs in DB so history renders correctly)
-    Messages.create({
+    await Messages.create({
       conversationId,
       role: "user",
       content: content || "",
@@ -132,7 +128,7 @@ router.post("/send", async (req, res, next) => {
     });
 
     // Auto-title from first message
-    const messageCount = Messages.count(conversationId);
+    const messageCount = await Messages.count(conversationId);
     if (messageCount === 1) {
       const titleSource =
         content?.trim() ||
@@ -140,7 +136,7 @@ router.post("/send", async (req, res, next) => {
         "New Chat";
       const words = titleSource.split(/\s+/);
       const title = words.slice(0, 7).join(" ") + (words.length > 7 ? "..." : "");
-      Conversations.updateTitle(conversationId, title.slice(0, 60));
+      await Conversations.updateTitle(conversationId, title.slice(0, 60));
     }
 
     // Detect if any message in this turn or recent history has images
@@ -216,7 +212,7 @@ router.post("/send", async (req, res, next) => {
     }
 
     // Save assistant message
-    const assistantMsg = Messages.create({
+    const assistantMsg = await Messages.create({
       conversationId,
       role: "assistant",
       content: fullResponse,

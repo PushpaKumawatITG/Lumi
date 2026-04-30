@@ -35,7 +35,10 @@ export default function MessageBubble({
   const isUser = role === "user";
   const images = attachments.filter((a) => a.type === "image");
   const textFiles = attachments.filter((a) => a.type === "text");
-  const showActions = !isUser && typeof id === "number" && content;
+  // Show action row only for persisted assistant messages (id is a Mongo
+  // ObjectId string from the server; locally generated numeric ids from
+  // the streaming fallback are treated as not-yet-persisted).
+  const showActions = !isUser && typeof id === "string" && content;
 
   return (
     <div className={`flex items-start gap-3 max-w-3xl ${isUser ? "ml-auto flex-row-reverse" : ""}`}>
