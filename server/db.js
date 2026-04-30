@@ -10,6 +10,13 @@
  */
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import dns from "dns";
+
+// Some home/ISP DNS servers (notably in IN/PK/Windows) refuse SRV record
+// queries, which breaks MongoDB Atlas's `mongodb+srv://` connection format.
+// Force Node to use public DNS so the SRV lookup always works. Harmless
+// in cloud environments where DNS already works.
+dns.setServers(["8.8.8.8", "1.1.1.1", ...dns.getServers()]);
 
 // ---- Connection (cached across invocations) ----
 let connectionPromise = null;
