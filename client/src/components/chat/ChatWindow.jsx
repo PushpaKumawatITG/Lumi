@@ -3,6 +3,7 @@ import {
   createConversation,
   getMessages,
   sendMessageStream,
+  setMessageFeedback,
 } from "../../api";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
@@ -74,6 +75,7 @@ export default function ChatWindow({ conversationId, setConversationId, refreshS
         const decoder = new TextDecoder();
         let fullText = "";
         let buffer = "";
+        let assistantMessageId = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -97,6 +99,9 @@ export default function ChatWindow({ conversationId, setConversationId, refreshS
                 fullText += `\n\n*Error: ${parsed.error}*`;
                 setStreamText(fullText);
               }
+              if (parsed.done && parsed.messageId) {
+                assistantMessageId = parsed.messageId;
+              }
             } catch {}
           }
         }
@@ -104,7 +109,12 @@ export default function ChatWindow({ conversationId, setConversationId, refreshS
         if (fullText) {
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: fullText, id: Date.now() },
+            {
+              role: "assistant",
+              content: fullText,
+              id: assistantMessageId ?? Date.now(),
+              feedback: null,
+            },
           ]);
         }
       } catch (err) {
@@ -125,6 +135,23 @@ export default function ChatWindow({ conversationId, setConversationId, refreshS
     [conversationId, messages, setConversationId, refreshSidebar]
   );
 
+  const handleFeedback = useCallback(async (messageId, current, next) => {
+    // Toggle off if clicking the active vote
+    const value = current === next ? null : next;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, feedback: value } : m))
+    );
+    try {
+      await setMessageFeedback(messageId, value);
+    } catch (err) {
+      // Roll back on failure
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, feedback: current } : m))
+      );
+      console.error("Failed to save feedback:", err);
+    }
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -140,9 +167,12 @@ export default function ChatWindow({ conversationId, setConversationId, refreshS
           {messages.map((msg) => (
             <MessageBubble
               key={msg.id}
+              id={msg.id}
               role={msg.role}
               content={msg.content}
               attachments={msg.attachments}
+              feedback={msg.feedback}
+              onFeedback={handleFeedback}
             />
           ))}
 

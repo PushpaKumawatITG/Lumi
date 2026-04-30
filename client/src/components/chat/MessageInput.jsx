@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB
 const MAX_TEXT_SIZE = 1 * 1024 * 1024;  // 1MB
@@ -8,6 +8,11 @@ const TEXT_EXTENSIONS = [
   "java", "c", "cpp", "h", "go", "rs", "rb", "php", "sh", "sql",
   "xml", "ini", "toml", "env",
 ];
+
+const SpeechRecognitionImpl =
+  typeof window !== "undefined"
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null;
 
 function readAsDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -31,8 +36,67 @@ export default function MessageInput({ onSend, disabled }) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [error, setError] = useState("");
+  const [listening, setListening] = useState(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
+  // Snapshot of the textarea content when recognition started — final
+  // transcripts get appended to this so we don't clobber typed text.
+  const baseTextRef = useRef("");
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort?.();
+    };
+  }, []);
+
+  function toggleListening() {
+    if (!SpeechRecognitionImpl) return;
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new SpeechRecognitionImpl();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || "en-US";
+    baseTextRef.current = text ? text.trimEnd() + " " : "";
+
+    recognition.onresult = (event) => {
+      let interim = "";
+      let final = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) final += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      const next = baseTextRef.current + final + interim;
+      setText(next);
+      if (final) baseTextRef.current += final;
+      // Auto-resize the textarea since we're bypassing handleInput
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height =
+          Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      }
+    };
+    recognition.onerror = (e) => {
+      if (e.error && e.error !== "aborted" && e.error !== "no-speech") {
+        setError(`Voice input error: ${e.error}`);
+      }
+      setListening(false);
+    };
+    recognition.onend = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    setError("");
+    setListening(true);
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+    }
+  }
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -200,6 +264,26 @@ export default function MessageInput({ onSend, disabled }) {
             rows={1}
             className="flex-1 bg-transparent text-zinc-100 placeholder-zinc-500 resize-none outline-none text-sm leading-relaxed max-h-[200px] py-1.5"
           />
+
+          {SpeechRecognitionImpl && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={disabled}
+              title={listening ? "Stop voice input" : "Start voice input"}
+              className={`w-9 h-9 flex items-center justify-center rounded-full transition flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                listening
+                  ? "bg-red-500/20 text-red-400 animate-pulse"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
+              }`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="2" width="6" height="12" rx="3" />
+                <path d="M19 10a7 7 0 0 1-14 0" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+            </button>
+          )}
 
           <button
             onClick={handleSend}

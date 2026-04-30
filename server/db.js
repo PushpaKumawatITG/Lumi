@@ -62,6 +62,7 @@ export const Users = {
   },
 
   findByEmail(email) {
+    if (typeof email !== "string") return null;
     return data.users.find((u) => u.email === email.toLowerCase().trim());
   },
 
@@ -74,6 +75,7 @@ export const Users = {
   },
 
   verifyPassword(user, password) {
+    if (!user?.password_hash || typeof password !== "string") return false;
     return bcrypt.compareSync(password, user.password_hash);
   },
 };
@@ -135,6 +137,7 @@ export const Messages = {
       role,
       content,
       attachments: attachments || [],
+      feedback: null,
       timestamp: now(),
     };
     data.messages.push(msg);
@@ -151,5 +154,17 @@ export const Messages = {
 
   count(conversationId) {
     return data.messages.filter((m) => m.conversation_id === conversationId).length;
+  },
+
+  // Returns { ok: true } on success, or { ok: false, status } on failure.
+  // Verifies the message belongs to a conversation owned by userId.
+  setFeedback(messageId, userId, feedback) {
+    const msg = data.messages.find((m) => m.id === messageId);
+    if (!msg) return { ok: false, status: 404 };
+    const conv = data.conversations.find((c) => c.id === msg.conversation_id);
+    if (!conv || conv.user_id !== userId) return { ok: false, status: 403 };
+    msg.feedback = feedback;
+    save();
+    return { ok: true };
   },
 };

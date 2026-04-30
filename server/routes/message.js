@@ -23,6 +23,28 @@ const SYSTEM_PROMPT = {
 };
 
 /**
+ * POST /api/message/:id/feedback — thumbs up/down on an assistant message
+ * Body: { feedback: "up" | "down" | null }
+ */
+router.post("/:id/feedback", (req, res, next) => {
+  try {
+    const { feedback } = req.body || {};
+    if (feedback !== "up" && feedback !== "down" && feedback !== null) {
+      return res.status(400).json({ error: "feedback must be 'up', 'down', or null" });
+    }
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "Invalid message id" });
+    }
+    const result = Messages.setFeedback(id, req.user.id, feedback);
+    if (!result.ok) return res.status(result.status).json({ error: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/message/:conversationId — fetch all messages
  */
 router.get("/:conversationId", (req, res, next) => {

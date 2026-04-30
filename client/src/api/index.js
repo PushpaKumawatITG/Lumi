@@ -55,6 +55,12 @@ export const renameConversation = (id, title) =>
 export const getMessages = (conversationId) =>
   request(`/api/message/${conversationId}`).then((r) => r.json());
 
+export const setMessageFeedback = (messageId, feedback) =>
+  request(`/api/message/${messageId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({ feedback }),
+  }).then((r) => r.json());
+
 /**
  * Send a message and stream the SSE response.
  * Returns the readable stream body.

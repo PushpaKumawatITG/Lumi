@@ -1,18 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
+const ttsSupported =
+  typeof window !== "undefined" && "speechSynthesis" in window;
+
+// Strip Markdown so the spoken output doesn't read out backticks, asterisks, etc.
+function plainTextFromMarkdown(md) {
+  return md
+    .replace(/```[\s\S]*?```/g, " (code block) ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[*_~#>]/g, "")
+    .replace(/\s+\n/g, "\n")
+    .trim();
+}
+
 /**
  * Renders a single message bubble.
  * - User messages: right-aligned, violet accent, with image/file attachments
- * - Assistant messages: left-aligned, dark with Markdown rendering
+ * - Assistant messages: left-aligned, dark with Markdown rendering + actions
  */
-export default function MessageBubble({ role, content, attachments = [] }) {
+export default function MessageBubble({
+  id,
+  role,
+  content,
+  attachments = [],
+  feedback = null,
+  onFeedback,
+}) {
   const isUser = role === "user";
   const images = attachments.filter((a) => a.type === "image");
   const textFiles = attachments.filter((a) => a.type === "text");
+  const showActions = !isUser && typeof id === "number" && content;
 
   return (
     <div className={`flex items-start gap-3 max-w-3xl ${isUser ? "ml-auto flex-row-reverse" : ""}`}>
@@ -95,7 +118,95 @@ export default function MessageBubble({ role, content, attachments = [] }) {
             )}
           </div>
         )}
+
+        {showActions && (
+          <MessageActions
+            messageId={id}
+            content={content}
+            feedback={feedback}
+            onFeedback={onFeedback}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+function MessageActions({ messageId, content, feedback, onFeedback }) {
+  const [speaking, setSpeaking] = useState(false);
+
+  // Make sure speech stops if the message unmounts mid-utterance.
+  useEffect(() => {
+    return () => {
+      if (ttsSupported) window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  function toggleSpeak() {
+    if (!ttsSupported) return;
+    const synth = window.speechSynthesis;
+    if (speaking) {
+      synth.cancel();
+      setSpeaking(false);
+      return;
+    }
+    synth.cancel(); // stop any other bubble that might be speaking
+    const utter = new SpeechSynthesisUtterance(plainTextFromMarkdown(content));
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.onend = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    synth.speak(utter);
+  }
+
+  const btn = "p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition";
+  const active = "text-violet-400 bg-zinc-800";
+
+  return (
+    <div className="flex items-center gap-1 -mt-1 ml-1">
+      <button
+        type="button"
+        onClick={() => onFeedback?.(messageId, feedback, "up")}
+        title="Good response"
+        className={`${btn} ${feedback === "up" ? active : ""}`}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={feedback === "up" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M7 10v12" />
+          <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7V10l4.34-8.66a1.93 1.93 0 0 1 3.66 1.04Z" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={() => onFeedback?.(messageId, feedback, "down")}
+        title="Bad response"
+        className={`${btn} ${feedback === "down" ? active : ""}`}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={feedback === "down" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 14V2" />
+          <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17v12l-4.34 8.66a1.93 1.93 0 0 1-3.66-1.04Z" />
+        </svg>
+      </button>
+      {ttsSupported && (
+        <button
+          type="button"
+          onClick={toggleSpeak}
+          title={speaking ? "Stop" : "Read aloud"}
+          className={`${btn} ${speaking ? active : ""}`}
+        >
+          {speaking ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="1" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          )}
+        </button>
+      )}
     </div>
   );
 }
