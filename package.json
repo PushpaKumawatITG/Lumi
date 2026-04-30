@@ -10,7 +10,17 @@
     "install:all": "cd server && npm install && cd ../client && npm install",
     "dev:server": "cd server && node index.js",
     "dev:client": "cd client && npm run dev",
-    "build": "cd server && npm install && cd ../client && npm install && npm run build",
+    "build": "cd client && npm install && npm run build",
     "start": "cd server && NODE_ENV=production node index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-mongo": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "groq-sdk": "^0.15.0",
+    "mongoose": "^8.9.5"
   }
 }
